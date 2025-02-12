@@ -7,15 +7,6 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// Função para obter o IP do cliente
-const getClientIp = (req) => {
-  return req.headers['x-forwarded-for'] || 
-         req.connection.remoteAddress || 
-         req.socket.remoteAddress ||
-         req.connection.socket.remoteAddress;
-};
-
-
 // Dados dos presentes
 const giftData = {
   gifts: [
@@ -50,54 +41,98 @@ const giftData = {
 };
 
 
-// Armazenamento global de presentes selecionados
-let globalSelectedGifts = [];
+// Armazenamento de presentes disponíveis
+let availableGifts = [...originalGiftData];
 
-// Rotas
+// Armazenamento de seleções por sessão
+const sessionSelections = new Map();
+
+// Função para gerar um identificador único para a sessão
+const generateSessionId = () => {
+    return Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+};
+
+app.get('/session', (req, res) => {
+    const sessionId = generateSessionId();
+    sessionSelections.set(sessionId, []);
+    res.json({ sessionId });
+});
+
 app.get('/gifts', (req, res) => {
-  // Retorna todos os presentes não selecionados globalmente
-  const availableGifts = giftData.gifts.filter(
-    gift => !globalSelectedGifts.some(selectedGift => selectedGift.id === gift.id)
-  );
+    const sessionId = req.query.sessionId;
+    
+    // Verifica se a sessão existe
+    if (!sessionId || !sessionSelections.has(sessionId)) {
+        return res.status(400).json({ error: 'Sessão inválida' });
+    }
 
-  res.json(availableGifts);
+    // Filtra presentes disponíveis, removendo os já selecionados por qualquer sessão
+    const selectedGiftIds = Array.from(sessionSelections.values())
+        .flatMap(selections => selections.map(gift => gift.id));
+    
+    const filteredGifts = availableGifts.filter(
+        gift => !selectedGiftIds.includes(gift.id)
+    );
+
+    res.json(filteredGifts);
 });
 
 app.get('/selectedGifts', (req, res) => {
-  // Retorna todos os presentes selecionados globalmente
-  res.json(globalSelectedGifts);
+    const sessionId = req.query.sessionId;
+    
+    // Verifica se a sessão existe
+    if (!sessionId || !sessionSelections.has(sessionId)) {
+        return res.status(400).json({ error: 'Sessão inválida' });
+    }
+
+    // Retorna apenas os presentes selecionados pela sessão atual
+    res.json(sessionSelections.get(sessionId));
 });
 
 app.post('/selectGift', (req, res) => {
-  const gift = req.body;
-  const clientIp = getClientIp(req);
+    const { gift, sessionId } = req.body;
+    
+    // Verifica se a sessão existe
+    if (!sessionId || !sessionSelections.has(sessionId)) {
+        return res.status(400).json({ error: 'Sessão inválida' });
+    }
 
-  // Verifica se o presente já foi selecionado globalmente
-  const isAlreadySelected = globalSelectedGifts.some(g => g.id === gift.id);
+    // Verifica se o presente já foi selecionado por qualquer sessão
+    const isAlreadySelected = Array.from(sessionSelections.values())
+        .some(selections => selections.some(g => g.id === gift.id));
 
-  if (isAlreadySelected) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Este presente já foi selecionado.' 
-    });
-  }
+    if (isAlreadySelected) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Este presente já foi selecionado por outro usuário.' 
+        });
+    }
 
-  // Adiciona o presente à lista global de selecionados
-  globalSelectedGifts.push(gift);
+    // Adiciona o presente à lista da sessão atual
+    const sessionGifts = sessionSelections.get(sessionId);
+    sessionGifts.push(gift);
 
-  res.json({ success: true });
+    res.json({ success: true });
 });
 
 app.post('/returnGift', (req, res) => {
-  const gift = req.body;
+    const { gift, sessionId } = req.body;
+    
+    // Verifica se a sessão existe
+    if (!sessionId || !sessionSelections.has(sessionId)) {
+        return res.status(400).json({ error: 'Sessão inválida' });
+    }
 
-  // Remove o presente da lista global de selecionados
-  globalSelectedGifts = globalSelectedGifts.filter(g => g.id !== gift.id);
+    // Remove o presente da lista da sessão atual
+    const sessionGifts = sessionSelections.get(sessionId);
+    const updatedSessionGifts = sessionGifts.filter(g => g.id !== gift.id);
+    sessionSelections.set(sessionId, updatedSessionGifts);
 
-  res.json({ success: true });
+    res.json({ success: true });
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`Available gifts: ${giftData.gifts.length}`);
+    console.log(`Server running on port ${port}`);
+    console.log(`Available gifts: ${availableGifts.length}`);
 });
