@@ -1,12 +1,20 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
+
+// Função para obter o IP do cliente
+const getClientIp = (req) => {
+  return req.headers['x-forwarded-for'] || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress ||
+         req.connection.socket.remoteAddress;
+};
+
 
 // Dados dos presentes
 const giftData = {
@@ -41,34 +49,68 @@ const giftData = {
   selectedGifts: []
 };
 
-let { gifts, selectedGifts } = giftData;
+// Armazenamento de seleções por IP
+const ipSelections = {};
 
 // Rotas
 app.get('/gifts', (req, res) => {
-    res.json(gifts);
+  // Retorna todos os presentes não selecionados em nenhum IP
+  const selectedGiftIds = Object.values(ipSelections)
+    .flatMap(selections => selections.map(gift => gift.id));
+  
+  const availableGifts = giftData.gifts.filter(
+    gift => !selectedGiftIds.includes(gift.id)
+  );
+
+  res.json(availableGifts);
 });
 
 app.get('/selectedGifts', (req, res) => {
-    res.json(selectedGifts);
+  // Retorna apenas os presentes selecionados pelo IP atual
+  const clientIp = getClientIp(req);
+  res.json(ipSelections[clientIp] || []);
 });
 
 app.post('/selectGift', (req, res) => {
-    const gift = req.body;
-    gifts = gifts.filter(g => g.id !== gift.id);
-    selectedGifts.push(gift);
-    res.json({ success: true });
+  const gift = req.body;
+  const clientIp = getClientIp(req);
+
+  // Verifica se o presente já foi selecionado por outro IP
+  const isAlreadySelected = Object.values(ipSelections)
+    .some(selections => selections.some(g => g.id === gift.id));
+
+  if (isAlreadySelected) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Este presente já foi selecionado por outro usuário.' 
+    });
+  }
+
+  // Inicializa a lista de selecionados para este IP se não existir
+  if (!ipSelections[clientIp]) {
+    ipSelections[clientIp] = [];
+  }
+
+  // Adiciona o presente à lista do IP
+  ipSelections[clientIp].push(gift);
+
+  res.json({ success: true });
 });
 
 app.post('/returnGift', (req, res) => {
-    const gift = req.body;
-    selectedGifts = selectedGifts.filter(g => g.id !== gift.id);
-    gifts.push(gift);
-    gifts.sort((a, b) => a.id - b.id);
-    res.json({ success: true });
+  const gift = req.body;
+  const clientIp = getClientIp(req);
+
+  // Remove o presente da lista do IP atual
+  if (ipSelections[clientIp]) {
+    ipSelections[clientIp] = ipSelections[clientIp]
+      .filter(g => g.id !== gift.id);
+  }
+
+  res.json({ success: true });
 });
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-    console.log(`Available gifts: ${gifts.length}`);
-    console.log(`Selected gifts: ${selectedGifts.length}`);
+  console.log(`Server running on port ${port}`);
+  console.log(`Available gifts: ${giftData.gifts.length}`);
 });
