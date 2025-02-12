@@ -1,9 +1,12 @@
-const jsonServer = require('json-server');
+const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
 
-const server = jsonServer.create();
+const app = express();
+const port = process.env.PORT || 10000;
+
+app.use(cors());
+app.use(express.json());
 
 // Crie os dados iniciais se não existirem
 const defaultData = {
@@ -38,34 +41,32 @@ const defaultData = {
  "selectedGifts": []
 };
 
-// Verifica se db.json existe, se não, cria com dados padrão
-if (!fs.existsSync('db.json')) {
- fs.writeFileSync('db.json', JSON.stringify(defaultData, null, 2));
-}
+let selectedGifts = [];
 
-const router = jsonServer.router('db.json');
-const middlewares = jsonServer.defaults();
-
-server.use(cors({
- origin: '*',
- methods: ['GET', 'POST', 'PUT', 'DELETE'],
- allowedHeaders: ['Content-Type']
-}));
-
-server.use(middlewares);
-
-// Log todas as requisições
-server.use((req, res, next) => {
- console.log('Request:', req.method, req.path, req.body);
- next();
+// Rotas
+app.get('/gifts', (req, res) => {
+    res.json(gifts);
 });
 
-// Rotas diretas sem /api
-server.use(router);
+app.get('/selectedGifts', (req, res) => {
+    res.json(selectedGifts);
+});
 
-const port = process.env.PORT || 10000;
-server.listen(port, () => {
- console.log(`Server is running on port ${port}`);
- console.log('Database content:', fs.readFileSync('db.json', 'utf8'));
- console.log('Available routes:', Object.keys(router.db.__wrapped__));
+app.post('/selectGift', (req, res) => {
+    const gift = req.body;
+    gifts = gifts.filter(g => g.id !== gift.id);
+    selectedGifts.push(gift);
+    res.json({ success: true });
+});
+
+app.post('/returnGift', (req, res) => {
+    const gift = req.body;
+    selectedGifts = selectedGifts.filter(g => g.id !== gift.id);
+    gifts.push(gift);
+    gifts.sort((a, b) => a.id - b.id);
+    res.json({ success: true });
+});
+
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
