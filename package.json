@@ -1,0 +1,17 @@
+{
+    "name": "gift-list-backend",
+    "version": "1.0.0",
+    "main": "server.js",
+    "dependencies": {
+        "cors": "^2.8.5",
+        "json-server": "^0.17.4"
+    },
+    "scripts": {
+        "start": "node server.js"
+    },
+    "description": "",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs"
+}
