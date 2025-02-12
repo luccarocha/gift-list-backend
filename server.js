@@ -49,63 +49,50 @@ const giftData = {
   selectedGifts: []
 };
 
-// Armazenamento de seleções por IP
-const ipSelections = {};
+
+// Armazenamento global de presentes selecionados
+let globalSelectedGifts = [];
 
 // Rotas
 app.get('/gifts', (req, res) => {
-  // Retorna todos os presentes não selecionados em nenhum IP
-  const selectedGiftIds = Object.values(ipSelections)
-    .flatMap(selections => selections.map(gift => gift.id));
-  
+  // Retorna todos os presentes não selecionados globalmente
   const availableGifts = giftData.gifts.filter(
-    gift => !selectedGiftIds.includes(gift.id)
+    gift => !globalSelectedGifts.some(selectedGift => selectedGift.id === gift.id)
   );
 
   res.json(availableGifts);
 });
 
 app.get('/selectedGifts', (req, res) => {
-  // Retorna apenas os presentes selecionados pelo IP atual
-  const clientIp = getClientIp(req);
-  res.json(ipSelections[clientIp] || []);
+  // Retorna todos os presentes selecionados globalmente
+  res.json(globalSelectedGifts);
 });
 
 app.post('/selectGift', (req, res) => {
   const gift = req.body;
   const clientIp = getClientIp(req);
 
-  // Verifica se o presente já foi selecionado por outro IP
-  const isAlreadySelected = Object.values(ipSelections)
-    .some(selections => selections.some(g => g.id === gift.id));
+  // Verifica se o presente já foi selecionado globalmente
+  const isAlreadySelected = globalSelectedGifts.some(g => g.id === gift.id);
 
   if (isAlreadySelected) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Este presente já foi selecionado por outro usuário.' 
+      message: 'Este presente já foi selecionado.' 
     });
   }
 
-  // Inicializa a lista de selecionados para este IP se não existir
-  if (!ipSelections[clientIp]) {
-    ipSelections[clientIp] = [];
-  }
-
-  // Adiciona o presente à lista do IP
-  ipSelections[clientIp].push(gift);
+  // Adiciona o presente à lista global de selecionados
+  globalSelectedGifts.push(gift);
 
   res.json({ success: true });
 });
 
 app.post('/returnGift', (req, res) => {
   const gift = req.body;
-  const clientIp = getClientIp(req);
 
-  // Remove o presente da lista do IP atual
-  if (ipSelections[clientIp]) {
-    ipSelections[clientIp] = ipSelections[clientIp]
-      .filter(g => g.id !== gift.id);
-  }
+  // Remove o presente da lista global de selecionados
+  globalSelectedGifts = globalSelectedGifts.filter(g => g.id !== gift.id);
 
   res.json({ success: true });
 });
