@@ -42,7 +42,7 @@ const giftData = {
 
 
 // Armazenamento de presentes disponíveis
-let availableGifts = [...originalGiftData];
+let availableGifts = [...giftData];
 
 // Armazenamento de seleções por sessão
 const sessionSelections = new Map();
@@ -113,6 +113,9 @@ app.post('/selectGift', (req, res) => {
     const sessionGifts = sessionSelections.get(sessionId);
     sessionGifts.push(gift);
 
+    // Remove o presente da lista de disponíveis
+    availableGifts = availableGifts.filter(g => g.id !== gift.id);
+
     res.json({ success: true });
 });
 
@@ -128,6 +131,10 @@ app.post('/returnGift', (req, res) => {
     const sessionGifts = sessionSelections.get(sessionId);
     const updatedSessionGifts = sessionGifts.filter(g => g.id !== gift.id);
     sessionSelections.set(sessionId, updatedSessionGifts);
+
+    // Adiciona o presente de volta à lista de disponíveis
+    availableGifts.push(gift);
+    availableGifts.sort((a, b) => a.id - b.id);
 
     res.json({ success: true });
 });
