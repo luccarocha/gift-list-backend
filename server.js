@@ -7,7 +7,7 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// Dados dos presentes
+// Lista de presentes
 const giftData = {
   gifts: [
     {"id": 1, "name": "Assadeiras", "link": "https://www.magazinevoce.com.br/magazineluccastorels/jogo-4-formas-assadeiras-retangulares-aluminio-p-bolos-e-tortas-postagem-rapida-mba/p/hhfghh5j8e/ud/fabo/"},
@@ -36,10 +36,8 @@ const giftData = {
     {"id": 24, "name": "Potes de Vidro Hermético", "link": "https://www.magazinevoce.com.br/magazineluccastorels/conjunto-5-potes-de-vidro-hermetico-mantimentos-tampa-640ml-u4home/p/gk6k1dcdjk/ud/porm/"},
     {"id": 25, "name": "Sanduicheira", "link": "https://www.magazinevoce.com.br/magazineluccastorels/sanduicheira-grill-britania-bgr27i-2-em-1-prata-850w-antiaderente/p/235076200/ep/gset/"},
     {"id": 26, "name": "Varal Retrátil", "link": "https://www.magazinevoce.com.br/magazineluccastorels/varal-de-chao-com-abas-retratil-roupas-intimas-apartamento-articulado-mini-aco-branco-portatil-preto-home-utilities/p/cd7aab54k9/ud/vral/"}
-  ],
-  selectedGifts: []
+  ]
 };
-
 
 // Armazenamento de presentes disponíveis
 let availableGifts = [...giftData.gifts];
@@ -63,8 +61,13 @@ app.get('/gifts', (req, res) => {
     const sessionId = req.query.sessionId;
     
     // Verifica se a sessão existe
-    if (!sessionId || !sessionSelections.has(sessionId)) {
-        return res.status(400).json({ error: 'Sessão inválida' });
+    if (!sessionId) {
+        return res.status(400).json({ error: 'ID de sessão é obrigatório' });
+    }
+
+    // Adiciona a sessão se não existir
+    if (!sessionSelections.has(sessionId)) {
+        sessionSelections.set(sessionId, []);
     }
 
     // Filtra presentes disponíveis, removendo os já selecionados por qualquer sessão
@@ -82,11 +85,16 @@ app.get('/selectedGifts', (req, res) => {
     const sessionId = req.query.sessionId;
     
     // Verifica se a sessão existe
-    if (!sessionId || !sessionSelections.has(sessionId)) {
-        return res.status(400).json({ error: 'Sessão inválida' });
+    if (!sessionId) {
+        return res.status(400).json({ error: 'ID de sessão é obrigatório' });
     }
 
-    // Retorna apenas os presentes selecionados pela sessão atual
+    // Adiciona a sessão se não existir
+    if (!sessionSelections.has(sessionId)) {
+        sessionSelections.set(sessionId, []);
+    }
+
+    // Retorna os presentes selecionados para esta sessão
     res.json(sessionSelections.get(sessionId));
 });
 
