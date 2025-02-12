@@ -42,7 +42,7 @@ const giftData = {
 
 
 // Armazenamento de presentes disponíveis
-let availableGifts = [...giftData];
+let availableGifts = [...giftData.gifts];
 
 // Armazenamento de seleções por sessão
 const sessionSelections = new Map();
